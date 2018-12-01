@@ -1,8 +1,6 @@
 package binance
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -18,17 +16,7 @@ func WsPartialBookDepthServe(symbol string, handler WsPartialBookDepthHandler, l
 	endpoint := fmt.Sprintf("%s/%s@depth%d", baseURL, strings.ToLower(symbol), levels)
 	cfg := newWsConfig(endpoint)
 	wsHandler := func(message []byte) {
-
-		event := &WsPartialBookDepthEvent{}
-		message = bytes.Replace(message, []byte(",[]]"), []byte("   ]"), -1)
-		err := json.Unmarshal(message, event)
-		if err != nil {
-			// TODO: callback if there is an error
-			fmt.Println(string(message))
-			fmt.Println(err)
-			return
-		}
-		handler(event)
+		handler(parseWsPartialBookDepthEvent(message, levels))
 	}
 	return wsServe(cfg, wsHandler)
 }
