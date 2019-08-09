@@ -12,14 +12,14 @@ type WsPartialBookDepthHandler func(event *WsPartialBookDepthEvent)
 
 // WsPartialBookDepthServe serve websocket depth handler with a symbol.
 // Valid <levels> are 5, 10, or 20.
-func WsPartialBookDepthServe(symbol string, handler WsPartialBookDepthHandler, levels int) (done chan interface{}, lsDone chan interface{}, err error) {
+func WsPartialBookDepthServe(symbol string, handler WsPartialBookDepthHandler, levels int, closed *bool) (done chan interface{}, err error) {
 	endpoint := fmt.Sprintf("%s/%s@depth%d", baseURL, strings.ToLower(symbol), levels)
 	cfg := newWsConfig(endpoint)
 	wsHandler := func(message []byte) {
 		handler(parseWsPartialBookDepthEvent(message, levels))
 	}
 	done = make(chan interface{}, 2)
-	lsDone, err = wsServeMax(cfg, wsHandler, done)
+	err = wsServeMax(cfg, wsHandler, done, closed)
 	return
 }
 

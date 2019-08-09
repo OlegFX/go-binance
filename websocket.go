@@ -1,6 +1,9 @@
 package binance
 
 import (
+	"time"
+	"strings"
+
 	"github.com/gorilla/websocket"
 )
 
@@ -43,7 +46,7 @@ func wsServe(cfg *wsConfig, handler WsHandler) (done chan struct{}, err error) {
 	return
 }
 
-func wsServeMax(cfg *wsConfig, handler WsHandler, done chan interface{}) (lsDone chan interface{}, err error) {
+func wsServeMax(cfg *wsConfig, handler WsHandler, done chan interface{}, closed *bool) (err error) {
 	c, _, err := websocket.DefaultDialer.Dial(cfg.endpoint, nil)
 	if err != nil {
 		return
@@ -52,36 +55,37 @@ func wsServeMax(cfg *wsConfig, handler WsHandler, done chan interface{}) (lsDone
 	if done == nil {
 		done = make(chan interface{}, 2)
 	}
-	lsDone = make(chan interface{}, 2)
-
-	go func() {
-		v := <-done
-		lsDone <- v
-		if v != nil {
-			c.Close()
-		}
-	}()
 
 	go func() {
 		defer func() {
 			_ = c.Close()
 
 			if pan := recover(); pan != nil {
-				go wsServeMax(cfg, handler, done)
+				go wsServeMax(cfg, handler, done, closed)
 				return
 			}
 
-			close(lsDone)
 			close(done)
 		}()
 
 		for {
 			_, message, err := c.ReadMessage()
 			if err != nil {
+				if strings.Contains(err.Error(), "use of closed network connection") {
+					time.Sleep(time.Second * 3)
+					go wsServeMax(cfg, handler, done, closed)
+				} else {
+					time.Sleep(time.Second * 3)
+					go wsServeMax(cfg, handler, done, closed)
+				}
 				return
 			}
 
-			go handler(message)
+			if *closed {
+				return
+			}
+
+			handler(message)
 		}
 	}()
 
