@@ -65,7 +65,14 @@ func wsServeMax(cfg *wsConfig, handler WsHandler, done chan interface{}, closed 
 				return
 			}
 
-			close(done)
+			select {
+			case _, ok := <-done:
+				if !ok {
+					break
+				}
+			default:
+				close(done)
+			}
 		}()
 
 		for {
